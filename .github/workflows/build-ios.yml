@@ -1,0 +1,98 @@
+name: Build unsigned iOS IPA for WenMaiZaiZi
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'web/**'
+      - 'capacitor.config.json'
+      - 'package.json'
+      - '.github/workflows/build-ios.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Capacitor
+        run: npm install --no-audit --no-fund
+
+      - name: Generate iOS project and copy web assets
+        run: |
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Set Chinese display name on home screen
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          p = Path('ios/App/App/Info.plist')
+          d = plistlib.loads(p.read_bytes())
+          d['CFBundleDisplayName'] = '文脉在兹'
+          p.write_bytes(plistlib.dumps(d))
+          print('CFBundleDisplayName = 文脉在兹')
+          PY
+
+      - name: Archive WITHOUT signing (signature is done later by i4 / Aisi)
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -sdk iphoneos \
+            -archivePath "$PWD/build/App.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            -quiet clean archive
+
+      - name: Pack unsigned IPA with ASCII-only paths
+        run: |
+          APP_PATH=$(find "$PWD/build/App.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' -type d | head -1)
+          if [ -z "$APP_PATH" ]; then echo 'No .app produced'; exit 1; fi
+          echo "Found: $APP_PATH"
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP_PATH" Payload/
+          # 爱思助手错误码 45 常由压缩包内中文路径引起，这里先自检
+          if find Payload | LC_ALL=C grep -q '[^ -~]'; then
+            echo 'Non-ASCII path found inside IPA, would break i4 signing:'
+            find Payload | LC_ALL=C grep '[^ -~]' | head -20
+            exit 1
+          fi
+          zip -qr WenMaiZaiZi-unsigned.ipa Payload
+          ls -lh WenMaiZaiZi-unsigned.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: WenMaiZaiZi-unsigned-ipa
+          path: WenMaiZaiZi-unsigned.ipa
+          retention-days: 30
+
+      - name: Publish IPA as an anonymous-downloadable release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG='v3.0.0'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" WenMaiZaiZi-unsigned.ipa --clobber
+          else
+            gh release create "$TAG" WenMaiZaiZi-unsigned.ipa \
+              --title 'WenMaiZaiZi unsigned IPA' \
+              --notes "Unsigned build of $GITHUB_SHA. Sign it with i4 / Aisi on Windows."
+          fi
+          echo "Download: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG/WenMaiZaiZi-unsigned.ipa"

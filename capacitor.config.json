@@ -1,0 +1,15 @@
+{
+  "appId": "cn.wenmaizaizi.app",
+  "appName": "WenMaiZaiZi",
+  "webDir": "web",
+  "bundledWebRuntime": false,
+  "loggingBehavior": "none",
+  "ios": {
+    "contentInset": "always",
+    "allowsLinkPreview": false,
+    "backgroundColor": "#f2f2f7"
+  },
+  "plugins": {
+    "SplashScreen": { "launchAutoHide": true }
+  }
+}

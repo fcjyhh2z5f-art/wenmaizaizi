@@ -1,0 +1,76 @@
+文脉在兹 · iOS 安装：你只需要做这 3 件事
+================================================
+
+本目录已经替你准备好了：
+  · 推送脚本会自动初始化 git 仓库并提交（解压包不含 .git，属正常）
+  · 云构建会自动把编译好的未签名 IPA 发布成 Release 附件，可匿名下载
+  · 取回脚本内置 GitHub 直连 + 镜像多通道，自动择优下载并校验包结构
+  · 两个一键脚本已经写好
+
+【第 1 件】双击「一键推送到GitHub.bat」
+  · 窗口会显示已建好的仓库地址：
+      https://github.com/fcjyhh2z5f-art/wenmaizaizi.git
+  · 直接按回车即可，不用填任何东西（脚本已内置你的仓库）
+  · 浏览器会弹一次 GitHub 登录授权，点 Authorize 即可
+  · 推送成功后，云端 macOS 自动开始编译，约 3-8 分钟
+  · 脚本开头会先做一次网络体检；git push 这一步必须你本人登录授权，
+    镜像和加速器都代替不了登录
+
+  若黑色窗口被关掉了：重新双击同一个 bat 即可，它会从本地继续，
+  不会重复建仓库。要换仓库的话，在提示处粘贴新地址再回车
+  （新建仓库必须选 Public，且不要勾选 README / .gitignore / license）。
+
+【第 2 件】等构建跑完，双击「一键取回IPA.bat」
+  · 会把 WenMaiZaiZi-unsigned.ipa 下载到本目录，并自动校验包结构
+  · 官方直连失败时会自动切换镜像通道，无需手工干预
+  · 如果提示「还没找到 Release」，等几分钟再双击一次
+  · 下载卡住时，命令行运行 python fetch_ipa.py --check 看完整通道体检报告
+  · 也可以把「用户名/仓库名」发给我，我直接帮你把 IPA 拉下来
+
+【第 3 件】爱思助手签名 + 装进 iPhone（这一步必须你本人做）
+  1. Windows 安装爱思助手，iPhone 数据线连接，点「信任此电脑」
+  2. 工具箱 → IPA 文件签名 → 添加 IPA → 使用 Apple ID 签名 → 开始签名
+  3. 点「签名文件保存到 → 打开」找到签名后的 IPA，用爱思助手安装
+  4. iPhone：设置 → 通用 → VPN 与设备管理 → 信任该开发者
+  5. 打开「文脉在兹」；之后飞行模式也能用，电脑关机也没关系
+
+  注意：用一个专用的 Apple ID 小号，不要把主力 iCloud 密码交给第三方工具。
+  免费签名 7 天有效，到期只是图标打不开，插线重签一次，书库数据不丢。
+  iPhone「设置 → 通用 → VPN 与设备管理」在旧版系统叫「描述文件与设备管理」。
+
+【网络受限 / GitHub 打不开怎么办】
+  本机 2026-11-11 实测：
+    · github.com / api.github.com / codeload.github.com 直连正常，
+      推送、查询 Release、下载附件都可用。
+    · raw.githubusercontent.com 完全不通，写 hosts 也修不了；但本工程的
+      云构建（checkout / setup-node / gh release）都在 GitHub 机房内运行，
+      不经过本机 raw，所以不影响 iOS 构建与取回。
+    · 可用镜像：gh-proxy.com（网页 / Release 下载 / API）、
+      ghproxy.net（raw 文件 / git clone 协议）。
+
+  取回脚本按「官方直连 → gh-proxy.com → ghproxy.net → 备用镜像」自动降级，
+  每条通道分别试「系统代理」和「强制直连」，通常不用你做任何设置。
+  手动拼接下载（浏览器直接打开）：
+    https://gh-proxy.com/https://github.com/用户名/仓库名/releases/download/v3.0.0/WenMaiZaiZi-unsigned.ipa
+  镜像 clone（只读；push 不能走镜像）：
+    git clone https://ghproxy.net/https://github.com/用户名/仓库名.git
+
+  GitHub 加速器（hosts 方案）本机也试跑过：它只能修 gist.github.com，
+  修不了 raw.githubusercontent.com，还会往系统 hosts 写 30 多行 IP；
+  对 iOS 这条链路没有收益，所以没有改动你的系统 hosts / git 全局配置。
+  若以后 github.com 网页打不开，再运行加速器的 check / apply 即可
+  （apply 需要管理员确认），随时可 rollback。
+  镜像只是下载中转：不要在任何镜像站填写 GitHub 账号或密码。
+
+【装完之后】
+  App 本身不含任何书。在「文脉在兹」电脑版
+  「③ 我的书库与设置 → 导出手机书库快照」得到一个 JSON，
+  用「文件」App / 微信 / 隔空投送传到 iPhone，在 App「导入」页选中即可。
+
+【不想签名？】
+  也可以把 web/ 里的文件上传到 GitHub Pages（Settings → Pages → main / docs），
+  用 iPhone Safari 打开那个 HTTPS 地址，等页面加载完，「分享 → 添加到主屏幕」。
+  这条路不用数据线、不用 7 天重签，但首次要联网，且 iOS 可能清理网页存储，
+  记得定期在「书库 → 导出快照」备份。
+
+详细原理、错误码 44 / 45、三端互通说明见 README.md。

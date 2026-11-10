@@ -1,0 +1,16 @@
+{
+  "name": "文脉在兹 · 离线版",
+  "short_name": "文脉在兹",
+  "description": "书与检索引擎都在本机的离线史料库，藏青底白色行书「文」图标，不需要电脑开机",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f2f2f7",
+  "theme_color": "#f2f2f7",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

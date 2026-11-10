@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="文脉在兹">
+<meta name="theme-color" content="#f2f2f7">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="app.css">
+<title>文脉在兹 · 离线版</title>
+</head>
+<body>
+<div class="app">
+  <div class="nav">
+    <div class="nav-row">
+      <div>
+        <h1 id="pageTitle">检索史料</h1>
+        <p>文脉在兹 · 书与引擎都在这台设备上</p>
+      </div>
+      <button class="status-pill" id="btnStatus" type="button"><span class="dot"></span><span id="statusText">载入中…</span></button>
+    </div>
+  </div>
+
+  <main>
+    <!-- ===================== 检索 ===================== -->
+    <section class="page active" id="page-search">
+      <div class="card">
+        <div class="card-title">一句话需求</div>
+        <div class="hint">用规则提取关键词、书名、章号与检索模式，结果填入下方条件框供你修改，不冒充语义理解。</div>
+        <textarea id="reqText" rows="2" placeholder="例：在《漢書食貨志選》里查 第2卷 府兵 怎么记载"></textarea>
+        <div class="row gap8 mt10">
+          <button class="btn btn-soft btn-sm" id="btnParse" type="button">解析需求</button>
+          <button class="btn btn-sm" id="btnParseSearch" type="button">解析并检索</button>
+        </div>
+        <div class="notes mt10 hidden" id="parseNotes"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">检索条件</div>
+        <label class="fl" for="kw">关键词（空格／逗号分隔多个词）</label>
+        <input id="kw" type="search" placeholder="如 府兵　租庸调" enterkeyhint="search">
+        <label class="fl">检索模式</label>
+        <div class="segmented" id="modeSeg">
+          <button type="button" data-v="or" class="on">任一命中</button>
+          <button type="button" data-v="and">全部命中</button>
+          <button type="button" data-v="phrase">整句短语</button>
+        </div>
+        <div class="grid2">
+          <div>
+            <label class="fl" for="bookSel">书籍范围</label>
+            <select id="bookSel"><option value="">全部书籍</option></select>
+          </div>
+          <div>
+            <label class="fl" for="section">章节</label>
+            <input id="section" type="text" placeholder="章号或标题，可留空">
+          </div>
+        </div>
+        <div class="grid2">
+          <div>
+            <label class="fl" for="perBook">每书最多</label>
+            <input id="perBook" type="number" min="1" max="200" value="20">
+          </div>
+          <div>
+            <label class="fl" for="context">片段长度</label>
+            <input id="context" type="number" min="80" max="2000" step="40" value="240">
+          </div>
+        </div>
+        <div class="switch-row"><span>简繁异体等价匹配</span><label class="switch"><input type="checkbox" id="tolerant" checked><span></span></label></div>
+        <div class="switch-row"><span>把关键词当正则表达式</span><label class="switch"><input type="checkbox" id="regexMode"><span></span></label></div>
+        <button class="btn mt12" id="btnSearch" type="button" style="width:100%">开始检索</button>
+      </div>
+
+      <div class="warn-card"><b>引用警示</b>　片段仅供定位。引用前请点开锚点回查<b>完整原文</b>，并核对底本页码、版本与句读。锚点是程序按段落切分生成的编号，不是底本原有页码。</div>
+
+      <div class="statbar hidden" id="statbar"></div>
+      <div class="warnings" id="warnings"></div>
+      <div id="results"></div>
+      <div class="row gap8 mt12" id="exportRow" style="display:none">
+        <button class="btn btn-soft btn-sm" id="btnExport" type="button">导出报告</button>
+        <button class="btn btn-soft btn-sm" id="btnFetchAll" type="button">取回全部原文</button>
+      </div>
+      <div class="card mt12" id="emptyCard">
+        <div class="card-title">从这里开始</div>
+        <div class="hint">书库完全由你自己导入，程序不预置任何书目。到「导入」页载入电脑版导出的<b>书库快照</b>，或直接选 TXT／MD、粘贴史料。导入后立即可查，全程不需要网络。</div>
+      </div>
+      <div class="foot-space"></div>
+    </section>
+
+    <!-- ===================== 导入 ===================== -->
+    <section class="page" id="page-import">
+      <div class="card">
+        <div class="card-title">导入底本</div>
+        <div class="hint">一切都在本机完成，文件不会上传到任何服务器。本机可直接导入 EPUB、FB2、TXT／Markdown／CSV，以及电脑版「导出手机书库快照」生成的 JSON；也可直接粘贴文本。</div>
+        <div class="segmented" id="importSeg">
+          <button type="button" data-v="file" class="on">选择文件</button>
+          <button type="button" data-v="text">粘贴文本</button>
+        </div>
+
+        <div id="importFile" class="mt12">
+          <div class="filebox">
+            <input type="file" id="fileInput" accept=".json,.epub,.fb2,.txt,.md,.markdown,.csv,.text">
+            <button class="btn btn-soft btn-sm" id="btnPick" type="button">从「文件」选择</button>
+            <span class="file-name" id="fileName">尚未选择文件</span>
+          </div>
+          <div class="path-note mt10">
+            本机直读：EPUB · FB2 · TXT · MD · CSV · 书库快照 JSON。<br>
+            经快照带入：PDF · MOBI · AZW · AZW3(KF8) · KFX —— 这些容器需要 PDF 文字层解析、
+            PalmDB/HUFF-CDIC 解压或 Calibre 转换，由电脑版完成切分后导出快照即可，
+            手机端只接收已带锚点的纯 JSON，全程不需要网络。
+          </div>
+        </div>
+
+        <div id="importText" class="mt12 hidden">
+          <label class="fl" for="pasteText">史料正文</label>
+          <textarea id="pasteText" rows="7" placeholder="# 卷一 田赋&#10;唐初定租庸調之法，凡授田之丁……&#10;可用 # 或 第X卷 分章，空行分段，每行一个锚点。"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">书籍信息</div>
+        <label class="fl" for="title">书名 <span style="color:var(--red)">*</span></label>
+        <input id="title" type="text" placeholder="粘贴文本／选 TXT 时必填；载入快照时留空">
+        <div class="grid2">
+          <div><label class="fl" for="author">著者</label><input id="author" type="text" placeholder="选填"></div>
+          <div><label class="fl" for="year">年代</label><input id="year" type="text" placeholder="选填"></div>
+        </div>
+        <div class="grid2">
+          <div><label class="fl" for="code">书代码</label><input id="code" type="text" placeholder="留空自动生成"></div>
+          <div><label class="fl" for="pattern">分章正则</label><input id="pattern" type="text" placeholder="选填"></div>
+        </div>
+        <label class="fl" for="publisher">出版者 / 底本说明</label>
+        <input id="publisher" type="text" placeholder="选填">
+        <label class="fl" for="note">备注（版本、一手／二手属性等，会随引用显示）</label>
+        <input id="note" type="text" placeholder="选填">
+        <button class="btn mt12" id="btnImport" type="button" style="width:100%">导入到本机书库</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">导入日志</div></div>
+        <div class="logbox" id="logBox">等待导入……</div>
+      </div>
+      <div class="foot-space"></div>
+    </section>
+
+    <!-- ===================== 书库 ===================== -->
+    <section class="page" id="page-library">
+      <div class="statbar" id="libStat">读取中……</div>
+      <div id="libList"></div>
+      <div class="card">
+        <div class="card-title">书库快照</div>
+        <div class="hint">导出一个 JSON 文件存进「文件」App，就是书库的完整备份；换设备或重签 App 后导入即可恢复，绝不依赖签名或网络。</div>
+        <div class="row gap8">
+          <button class="btn btn-soft btn-sm" id="btnBackup" type="button">导出快照</button>
+          <button class="btn btn-soft btn-sm" id="btnPickRestore" type="button">导入快照</button>
+          <input type="file" id="restoreFile" accept=".json" style="display:none">
+        </div>
+        <div class="logbox mt10 hidden" id="restoreLog"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">锚点与引文</div>
+        <ul class="limit-list">
+          <li>每本书用唯一「书代码」生成 <code>代码-0001</code> 形式的段落锚点，全书连续。</li>
+          <li>锚点回查显示的是<b>完整段落原文</b>与前后相邻段落，不是检索片段。</li>
+          <li>一手／二手属性、版本与纸本页码由你判定，程序不代为分级或校对。</li>
+        </ul>
+      </div>
+      <div class="foot-space"></div>
+    </section>
+
+    <!-- ===================== 设置 ===================== -->
+    <section class="page" id="page-settings">
+      <div class="card">
+        <div class="card-title">离线状态</div>
+        <div class="kv" id="statusKv">读取中……</div>
+        <div class="hint mt10">本页所有功能均在本机执行：没有服务器地址、没有访问令牌、没有任何 fetch 请求。飞行模式下照常检索与导入。</div>
+      </div>
+      <div class="card">
+        <div class="card-title">三种形态</div>
+        <ol class="steps">
+          <li><b>iOS 原生 App</b>：云构建出未签名 IPA → 爱思助手用 Apple ID 签名 → 数据线装进 iPhone。免费签 7 天，到期重签即可，书库数据不丢。</li>
+          <li><b>安卓 APK</b>：云编译出 debug 签名 APK，直接装进华为 / vivo / 小米等手机，在系统里允许「安装未知应用」即可；不需要 Mac、不需要开发者账号、不需要 7 天重签。</li>
+          <li><b>PWA 兜底</b>：用 HTTPS 地址首次打开后「分享 → 添加到主屏幕」，页面由 Service Worker 缓存；局域网 HTTP 下不会缓存，别用电脑直连地址。</li>
+        </ol>
+        <div class="hint mt10">签名请用专用 Apple ID 小号，不要交主力账号密码。详细步骤与错误码见随程序附带的 README。</div>
+      </div>
+      <div class="card">
+        <div class="card-title">独立性说明</div>
+        <ul class="limit-list">
+          <li>检索引擎：<code>offline-engine.js</code>，纯 JavaScript，与电脑版 <code>engine.py</code> 语义一致。</li>
+          <li>书库与设置：存本机 IndexedDB（不可用时降级 localStorage），可随时导出 JSON 快照。</li>
+          <li>简繁异体对照表随程序分发，运行时不依赖任何在线服务或转换库。</li>
+          <li>不读取 WorkBuddy 技能目录、不调用技能脚本、不需要电脑开机；iOS 与安卓版共用同一套 web 代码与图标。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title">简繁异体 / 同义词表</div>
+        <div class="hint" id="variantInfo">读取中……</div>
+        <div class="row gap8">
+          <button class="btn btn-soft btn-sm" id="btnVariantEdit" type="button">查看 / 编辑</button>
+          <button class="btn btn-soft btn-sm" id="btnVariantSave" type="button">保存</button>
+        </div>
+        <textarea id="variantText" rows="8" class="mt10 hidden" style="font-size:11.5px"></textarea>
+      </div>
+      <div class="foot-space"></div>
+    </section>
+  </main>
+
+  <div class="tabbar">
+    <button class="tab on" data-page="search" type="button">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>检索</span></button>
+    <button class="tab" data-page="import" type="button">
+      <svg viewBox="0 0 24 24"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg><span>导入</span></button>
+    <button class="tab" data-page="library" type="button">
+      <svg viewBox="0 0 24 24"><path d="M4 5h6v15H4zM14 5h6v15h-6z"/><path d="M6 9h2M16 9h2"/></svg><span>书库</span></button>
+    <button class="tab" data-page="settings" type="button">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg><span>设置</span></button>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-grab"></div>
+  <div class="sheet-head"><div class="sheet-title">锚点原文</div><button class="sheet-close" id="btnSheetClose" type="button">关闭</button></div>
+  <div class="sheet-body" id="sheetBody"></div>
+  <div class="sheet-actions">
+    <button class="btn btn-soft" id="btnCopyCite" type="button">复制引用</button>
+    <button class="btn btn-soft" id="btnCopyText" type="button">复制原文</button>
+    <button class="btn" id="btnShare" type="button">分享 / 导出</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="vendor/fflate.js"></script>
+<script src="variants.js"></script>
+<script src="offline-engine.js"></script>
+<script src="store.js"></script>
+<script src="importer.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

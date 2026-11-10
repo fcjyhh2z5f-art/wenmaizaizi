@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<!-- 预览辅助页：把界面固定在 390×844 的「手机视口」里，便于在桌面无头浏览器截图核对。
+     用法：http://127.0.0.1:8766/preview_frame.html?page=library
+     参数会原样传给内嵌页面；正常手机访问不需要本页。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>移动界面预览</title>
+<style>
+  html,body{margin:0;padding:0;background:#2b2b30;overflow:hidden}
+  iframe{display:block;width:390px;height:844px;border:0;background:#f2f2f7}
+</style>
+</head>
+<body>
+<iframe id="f" title="移动界面"></iframe>
+<script>
+  var q = location.search.replace(/^\?/, '');
+  document.getElementById('f').src = './' + (q ? '?' + q : '');
+</script>
+</body>
+</html>

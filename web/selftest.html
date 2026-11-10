@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<!-- 浏览器端自检：在真实 IndexedDB / WKWebView 等价环境里跑通导入→检索→回查→快照往返。
+     访问 selftest.html?run=1 执行；结果同时写入 DOM 与 document.title，便于无头浏览器抓取。
+     它会往同源书库写入一部「浏览器自检样例」，之后可用主界面「书库」页删除。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WAIT</title>
+<style>
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#f2f2f7;color:#111;padding:18px;font-size:13px;line-height:1.7}
+h1{font-size:20px;margin:0 0 8px}
+.ok{color:#0a7a3c}.bad{color:#c0281f}.muted{color:#777}
+pre{background:#fff;border-radius:10px;padding:12px;white-space:pre-wrap;word-break:break-all}
+</style>
+</head>
+<body>
+<h1>文脉在兹 · 离线版浏览器自检</h1>
+<div class="muted" id="hint">准备中……</div>
+<pre id="out"></pre>
+<script src="variants.js"></script>
+<script src="offline-engine.js"></script>
+<script src="store.js"></script>
+<script src="importer.js"></script>
+<script>
+(async function () {
+  var out = document.getElementById('out'), pass = 0, fail = 0;
+  function ck(ok, name, extra) {
+    ok ? pass++ : fail++;
+    out.textContent += (ok ? '  PASS ' : '  FAIL ') + name +
+      (extra !== undefined ? ' | ' + JSON.stringify(extra) : '') + '\n';
+  }
+  try {
+    var forceLocal = /[?&]storage=local(?:&|$)/.test(location.search);
+    var mode = await OfflineStore.init(forceLocal ? { storage: 'localStorage' } : { timeout: 1500 });
+    ck(true, '存储初始化：' + mode);
+    await OfflineStore.replaceBooks([]);
+    await OfflineStore.setVariants((typeof window !== 'undefined' ? window : globalThis).BUILTIN_VARIANTS);
+    var v = await OfflineStore.variants();
+    ck(Object.keys(v.char_equiv).length > 2000, '简繁对照表载入', Object.keys(v.char_equiv).length);
+
+    var text = ['# 卷一 田赋',
+      '唐初定租庸調之法，凡授田之丁，歲輸粟二石，謂之租。',
+      '浮收米羨之弊，晚清州縣多有之。',
+      '# 卷二 兵制',
+      '府兵之制，起於西魏，立於周隋，備於唐。',
+      '調發有制，番上有時。'].join('\n');
+    var book = OfflineImporter.makeBook({ text: text, title: '瀏覽器自檢樣例', code: 'WEB', existing: [] });
+    ck(book.sections.length === 2, '本机分章导入', book.sections.length);
+    await OfflineStore.saveBook(book);
+    var books = await OfflineStore.books();
+    ck(books.length === 1 && books[0].sections.length === 2, '写入本地存储后可读取', books.length);
+
+    var r = OfflineEngine.search(books, { keywords: '租庸调', mode: 'or', tolerant: true,
+      per_book: 20, context: 160, variants: v });
+    ck(r.hits.length > 0, '浏览器内简搜繁命中', r.hits.length);
+    var r2 = OfflineEngine.search(books, { keywords: '府兵', mode: 'or', tolerant: true,
+      per_book: 20, context: 160, variants: v });
+    ck(r2.hits.length > 0, '浏览器内检索命中');
+    var d = OfflineEngine.lookup(books, r2.hits[0].anchor);
+    ck(d.found && d.text.indexOf('，') >= 0, '锚点回查完整原文且保留全角标点', d.text);
+    ck(d.prev.length > 0 && d.next.length > 0, '前后相邻段落');
+
+    var snap = await OfflineStore.snapshot();
+    ck(snap.format === 'wenmaizaizi-snapshot' && snap.books.length === 1, '导出文脉在兹快照');
+    await OfflineStore.replaceBooks([]);
+    ck((await OfflineStore.books()).length === 0, '清空书库');
+    var res = await OfflineStore.importSnapshot(JSON.parse(JSON.stringify(snap)), true);
+    ck(res.total === 1, '从快照恢复书库', res);
+    var legacy = JSON.parse(JSON.stringify(snap));
+    legacy.format = 'myhistorylib-snapshot';
+    var res2 = await OfflineStore.importSnapshot(legacy, false);
+    ck(res2.total === 1, '兼容读取早期开发版快照');
+    var r3 = OfflineEngine.search(await OfflineStore.books(), {
+      keywords: '府兵', mode: 'or', tolerant: true, per_book: 20, context: 160, variants: v });
+    ck(r3.hits.length > 0, '恢复后仍可检索', r3.hits.length);
+  } catch (e) {
+    fail++;
+    out.textContent += '  FAIL 异常：' + (e && e.stack || e) + '\n';
+  }
+  var summary = '结果：' + pass + ' PASS / ' + fail + ' FAIL';
+  out.textContent += '\n' + summary + '\n';
+  document.getElementById('hint').textContent = fail ? '存在失败项' : '全部通过';
+  document.getElementById('hint').className = fail ? 'bad' : 'ok';
+  document.title = 'DONE ' + pass + '/' + fail;
+})();
+</script>
+</body>
+</html>

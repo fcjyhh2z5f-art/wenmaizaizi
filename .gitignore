@@ -1,0 +1,9 @@
+# 本地运行 / 构建产物，不进仓库
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+*.ipa
+node_modules/
+ios/
+build/
