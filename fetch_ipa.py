@@ -11,6 +11,10 @@
     python fetch_ipa.py --mirror https://xxx/   # 优先使用指定镜像
     python fetch_ipa.py --direct                # 绕开系统代理，全部直连
     python fetch_ipa.py --no-mirror             # 只用 GitHub 官方通道
+    python fetch_ipa.py --tag v3.0.0-build7     # 取回指定版本的 IPA（默认 v3.0.0）
+
+升级时：云构建会以 --clobber 覆盖同一个 Release 附件，本脚本每次都带
+no-cache 请求，并打印附件的更新时间与构建 SHA，可据此确认取回的是新包。
 
 本机实测（2026-11-11）：
     github.com / api.github.com / codeload.github.com 直连正常；
@@ -62,7 +66,9 @@ def short(exc: Exception) -> str:
 def http_get(url: str, timeout: float = 20, direct: bool = False,
              headers: dict | None = None):
     """打开 URL。direct=True 时绕开系统/沙箱代理，强制直连。"""
-    hs = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+    # no-cache：升级时 Release 固定 tag 会被覆盖，避免 CDN / 代理返回上一版 IPA
+    hs = {"User-Agent": USER_AGENT, "Accept": "*/*",
+          "Cache-Control": "no-cache", "Pragma": "no-cache"}
     if headers:
         hs.update(headers)
     req = urllib.request.Request(url, headers=hs)
@@ -150,8 +156,13 @@ def network_check(pair: tuple[str, str] | None, mirrors: list) -> int:
         owner, repo = pair
         url = f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{TAG}"
         ok, code, _, _ = probe(url, timeout=10)
-        print(f"  · 仓库 {owner}/{repo} 的 Release {TAG}：{code}"
-              f"{'（可能已构建完成）' if ok and code == '200' else '（还没生成或构建中）'}")
+        if ok and code == "200":
+            note = "（已生成，可直接取回）"
+        elif code == "403":
+            note = "（匿名 API 限额暂时用尽，不影响下载：脚本会走固定地址）"
+        else:
+            note = "（还没生成或构建中）"
+        print(f"  · 仓库 {owner}/{repo} 的 Release {TAG}：{code}{note}")
     print()
     print("体检只做网络探测，不改动 hosts、不改动 git 配置、不上传任何数据。")
     return 0 if results.get("github.com") else 1
@@ -176,10 +187,16 @@ def query_release(owner: str, repo: str, mirrors: list, direct_only: bool = Fals
                 with http_get(url, 15, is_direct,
                               {"Accept": "application/vnd.github+json"}) as r:
                     data = json.loads(r.read().decode("utf-8"))
-                asset = next((a.get("browser_download_url")
-                              for a in data.get("assets", []) if a.get("name") == ASSET), None)
+                asset = next((a for a in data.get("assets", [])
+                              if a.get("name") == ASSET), None)
+                asset_url = asset.get("browser_download_url") if asset else None
+                stamp = (asset or {}).get("updated_at") or data.get("published_at") or "未知"
+                notes = (data.get("body") or "").strip().splitlines()
                 print(f"  Release 查询成功：{tag}")
-                return asset, tag, errors
+                print(f"  附件更新时间：{stamp}    发布：{data.get('published_at', '未知')}")
+                if notes:
+                    print(f"  构建信息：{notes[0][:150]}")
+                return asset_url, tag, errors
             except Exception as exc:
                 errors.append(f"{tag}: {short(exc)}")
     print("  Release API 暂时查不到，改用固定下载地址直接尝试（不影响下载）。")
@@ -335,11 +352,15 @@ def print_next_steps(dest: Path, info: dict) -> None:
     print("     VPN 与设备管理 → 信任该开发者")
     print("  4. 打开 App；免费签名 7 天有效，到期插线重签即可，书库数据不丢")
     print()
+    print("升级覆盖安装：先在 App 内导出一次快照备份；用同一个 Apple ID 重签")
+    print("  新 IPA 覆盖安装，书库通常保留。7 天到期只需重签，不必重新下载 IPA。")
+    print()
     print("装好书库：电脑版「导出手机书库快照」→ 传 JSON 到手机 → App「导入」页选中。")
     print(f"IPA 位置：{dest}")
 
 
 def main(argv=None) -> int:
+    global TAG
     ap = argparse.ArgumentParser(
         description="取回云端编译的未签名 IPA（内置 GitHub 镜像自动兜底）")
     ap.add_argument("repo", nargs="?", default="", help="owner/repo 或 GitHub 仓库地址")
@@ -349,7 +370,10 @@ def main(argv=None) -> int:
                     help="优先使用的镜像前缀，例如 https://gh-proxy.com/")
     ap.add_argument("--direct", action="store_true", help="绕开系统代理，强制直连")
     ap.add_argument("--no-mirror", action="store_true", help="只用 GitHub 官方通道")
+    ap.add_argument("--tag", default=os.environ.get("WENMAI_RELEASE_TAG", TAG),
+                    help="Release 标签，默认 v3.0.0（升级可用带构建号的 tag）")
     args = ap.parse_args(argv)
+    TAG = (args.tag or TAG).strip()
 
     if args.self_test:
         return self_test()
@@ -374,7 +398,7 @@ def main(argv=None) -> int:
 
     owner, repo = pair
     page = f"https://github.com/{owner}/{repo}"
-    print(f"仓库：{owner}/{repo}")
+    print(f"仓库：{owner}/{repo}    Release：{TAG}")
     print(f"镜像通道：{', '.join(n for n, _ in mirrors) if mirrors else '未启用（--no-mirror）'}")
     print("正在查询云构建产物 ...")
     asset_url, _, _ = query_release(owner, repo, mirrors, args.direct)

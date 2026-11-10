@@ -6,6 +6,11 @@ title WenMaiZaiZi - Step 1: push to GitHub
 echo.
 echo   WenMaiZaiZi / iOS cloud build - Step 1 of 2
 echo   ------------------------------------------------------------
+echo   First install AND later upgrades both use this same file.
+echo   Upgrading? Just run it again after replacing the files; it will
+echo   commit and push, and GitHub Actions will build a fresh IPA.
+echo   To force a rebuild without changing any file, open the Actions
+echo   tab and click "Run workflow" instead.
 echo.
 echo   [Network check] Testing GitHub connectivity ...
 where curl.exe >nul 2>nul
@@ -53,7 +58,7 @@ if errorlevel 1 (
 )
 git add -A
 git diff --cached --quiet >nul 2>nul
-if errorlevel 1 git commit -m "Add helper scripts and IPA release publishing"
+if errorlevel 1 git commit -m "Update WenMaiZaiZi iOS project (rebuild unsigned IPA)"
 
 git remote remove origin >nul 2>nul
 git remote add origin "%REPO%"
@@ -84,6 +89,12 @@ echo   It takes about 3-8 minutes. Open the Actions tab of your repository
 echo   to watch "Build unsigned iOS IPA for WenMaiZaiZi".
 echo.
 echo   When it finishes, run the second .bat (download IPA) to fetch the file here.
-echo   It tries GitHub directly first and falls back to mirrors automatically.
+echo   It tries GitHub directly first and falls back to mirrors automatically,
+echo   and prints the build SHA / asset timestamp so you can confirm it is NEW.
+echo.
+echo   UPGRADING: export a snapshot inside the App first, then re-sign the new
+echo   IPA with the SAME Apple ID and install over the old one. A 7-day
+echo   signature expiry only needs re-signing, NOT a new IPA or a new build.
+echo   See 升级和更新.txt for all three platforms.
 echo.
 pause

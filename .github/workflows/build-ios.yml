@@ -2,13 +2,14 @@ name: Build unsigned iOS IPA for WenMaiZaiZi
 
 on:
   workflow_dispatch:
+  # 升级时任何一次 push 都重新编译，不限制改动文件；也可在 Actions 手动 Run workflow
   push:
     branches: [ main ]
-    paths:
-      - 'web/**'
-      - 'capacitor.config.json'
-      - 'package.json'
-      - '.github/workflows/build-ios.yml'
+
+# 连续推送时取消排队中的旧构建，避免取回脚本下到上一版 IPA
+concurrency:
+  group: ios-ipa-build
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -88,11 +89,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG='v3.0.0'
+          NOTES="Unsigned build: $GITHUB_SHA | run #$GITHUB_RUN_NUMBER | $(date -u '+%Y-%m-%d %H:%M UTC'). Sign with i4 / Aisi on Windows; free Apple ID signature must be renewed every 7 days."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" WenMaiZaiZi-unsigned.ipa --clobber
+            # 滚动 tag 覆盖上传后同步更新说明，方便本机确认取回的是不是最新一次构建
+            gh release edit "$TAG" --notes "$NOTES"
           else
             gh release create "$TAG" WenMaiZaiZi-unsigned.ipa \
               --title 'WenMaiZaiZi unsigned IPA' \
-              --notes "Unsigned build of $GITHUB_SHA. Sign it with i4 / Aisi on Windows."
+              --notes "$NOTES"
           fi
+          echo "Build: $NOTES"
           echo "Download: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/download/$TAG/WenMaiZaiZi-unsigned.ipa"
