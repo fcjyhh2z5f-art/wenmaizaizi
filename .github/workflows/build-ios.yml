@@ -6,11 +6,7 @@ on:
   push:
     branches: [ main ]
 
-# 连续推送时取消排队中的旧构建，避免取回脚本下到上一版 IPA
-concurrency:
-  group: ios-ipa-build
-  cancel-in-progress: true
-
+# 不再用 concurrency：第 4 次运行在 2 秒内就被取消，怀疑是并发组把新任务自己掐掉了
 permissions:
   contents: write
 
