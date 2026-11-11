@@ -16,7 +16,9 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    # 前三次用 macos-15 都在排队 15 分钟后没分配到 runner 被取消，
+    # 换一个独立的 runner 池试试；两个标签都是 GitHub 托管、公开仓库免费。
+    runs-on: macos-14
     # 云端 macOS runner 排队可能较久；放宽单任务上限，避免编译刚跑到一半被掐断
     timeout-minutes: 60
     steps:
