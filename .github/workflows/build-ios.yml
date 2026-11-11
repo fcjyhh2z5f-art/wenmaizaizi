@@ -17,7 +17,8 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 30
+    # 云端 macOS runner 排队可能较久；放宽单任务上限，避免编译刚跑到一半被掐断
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@v4
